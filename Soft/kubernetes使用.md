@@ -578,3 +578,23 @@ kubectl describe pods
 ```
 
 deployments 再次使用旧版本(v2)，回滚成功。
+
+
+
+## 配置
+
+### 外部化应用配置
+
+> 使用 `MicroProfile`、`ConfigMaps`、`Secrets` 实现外部化应用配置
+
+在 Kubernetes 中，为 docker 容器设置环境变量有几种不同的方式，比如： `Dockerfile`、`kubernetes.yml`、`Kubernetes ConfigMaps`、和 `Kubernetes Secrets`。  使用 ConfigMaps 和 Secrets 的一个好处是他们能在多个容器间复用， 比如赋值给不同的容器中的不同环境变量。
+
+`ConfigMaps` 是存储非机密键值对的 API 对象。 
+
+`Secrets` 尽管也用来存储键值对，但区别于 `ConfigMaps` 的是：它**针对机密/敏感数据**，且存储格式为 **Base64 编码**。 `secrets` 的这种特性使得它适合于存储证书、密钥、令牌。
+
+外部化应用配置之所以有用处，是因为配置常常根据环境的不同而变化。 为了实现此功能，我们用到了 **Java 上下文**和**依赖注入（Contexts and Dependency Injection, CDI）**、**MicroProfile 配置**。 `MicroProfile config` 是 `MicroProfile` 的功能特性， 是一组开放 Java 技术，用于开发、部署云原生微服务。
+
+CDI 提供一套标准的依赖注入能力，使得应用程序可以由相互协作的、松耦合的 `beans` 组装而成。 `MicroProfile Config` 为 app 和微服务提供从各种来源，比如应用、运行时、环境，获取配置参数的标准方法。 基于来源定义的优先级，属性可以自动的合并到单独一组应用可以通过 API 访问到的属性。 CDI & MicroProfile 都会被用在互动教程中， 用来从 `Kubernetes ConfigMaps` 和 `Secrets` 获得外部提供的属性，并注入应用程序代码中。
+
+很多开源框架、运行时支持 `MicroProfile Config`。

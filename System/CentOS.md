@@ -57,6 +57,24 @@ ssh root@$1 -C "echo $(cat ~/.ssh/id_rsa.pub) >> ~/.ssh/authorized_keys && cat ~
 ssh-exchange-pub-key <REMOTE IP>
 ```
 
+### 配置主机名称
+
+```bash
+set-hostname(){
+cat > /etc/hosts << EOF
+# IPv4
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+# IPv6
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+127.0.1.1	$1 $1.lan
+EOF
+hostnamectl set-hostname $1
+}
+set-hostname <HOST>
+```
+
+
+
 ### 共享磁盘挂载
 
 ```bash
