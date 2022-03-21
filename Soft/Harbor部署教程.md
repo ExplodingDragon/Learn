@@ -26,6 +26,11 @@ subjectAltName = @alt_names
 [alt_names]
 DNS.1=$CERT_HOST
 EOF
+openssl x509 -req -sha512 -days 3650 \
+    -extfile v3.ext \
+    -CA ca.crt -CAkey ca.key -CAcreateserial \
+    -in server.csr \
+    -out server.crt
 cat << EOF
 编辑文件 ~/harbor/harbor.yml,修改 https 配置如下 
 

@@ -1,31 +1,7 @@
-# Kubernetes 部署日志 
 
-> 此日志部署环境为 `Debian bullseye`
+# 部署 MariaDB Galera集群
 
-## 环境准备
-
-### 部署 Docker
-
-```bash
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg lsb-release
-curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sed "s#download.docker.com#mirrors.ustc.edu.cn/docker-ce#g" |  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt-get install docker-ce docker-ce-cli containerd.io -y
-# 更改 cgroup 驱动为 systemd
-systemctl stop docker.service docker.socket
-mkdir -p /etc/systemd/system/docker.service.d
-cat << "EOF" >/etc/systemd/system/docker.service.d/override.conf
-[Service]
-ExecStart=
-ExecStart=/usr/bin/dockerd  --exec-opt native.cgroupdriver=cgroupfs  -H fd:// --containerd=/run/containerd/containerd.sock
-EOF
-systemctl daemon-reload 
-systemctl start docker
-```
-
-### 部署 MariaDB Galera集群
+> 测试环境为 `Debian Bullseye`
 
 此处使用三台机器创建集群。其中，三台机器的配置为：
 
@@ -35,29 +11,30 @@ systemctl start docker
 | `10.0.0.22/24` | `10.5.12-MariaDB` | `10.0.0.20` |  从  |
 | `10.0.0.23/24` | `10.5.12-MariaDB` | `10.0.0.20` |  从  |
 
-#### 安装MariaDB依赖并初始化
+## 安装MariaDB并初始化
 
 ```bash
 apt install mariadb-server  galera-4 rsync  mariadb-client -y
 mysql_secure_installation # 配置默认安全密钥
 ```
 
-#### 配置集群
+### 配置集群
 
 > 不建议对捆绑的配置文件进行更改。相反，建议在 `include` 目录创建自定义配置文件。 `include` 目录中的配置文件按字母顺序读取。如果您希望您的自定义配置文件覆盖捆绑的配置文件，那么最好在自定义配置文件的名称前加上一个排序的字符串，例如`z-`.
 >
 > - 在 Debian 和 Ubuntu 上，一个可行的自定义配置文件应该是：`/etc/mysql/mariadb.conf.d/z-custom-my.cnf`
 
-##### 预先配置
+#### 预先配置
 
 ```bash
- systemctl stop mariadb.service
+systemctl stop mariadb.service
 export CLU_1=10.0.0.21
 export CLU_2=10.0.0.22
 export CLU_3=10.0.0.23
+export CLU_VIP=10.0.0.20
 ```
 
-##### 第一台机器配置
+#### 第一台机器配置
 
 ```bash
 cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
@@ -83,7 +60,7 @@ sudo galera_new_cluster
 systemctl restart mariadb.service
 ```
 
-##### 第二台机器配置
+#### 第二台机器配置
 
 ```bash
 cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
@@ -108,7 +85,7 @@ EOF
 systemctl restart mariadb.service
 ```
 
-##### 第三台机器配置
+#### 第三台机器配置
 
 ```bash
 cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
@@ -133,7 +110,7 @@ EOF
 systemctl restart mariadb.service
 ```
 
-##### 集群验证
+#### 集群验证
 
 `mysql -uroot`登陆集群执行此`SQL`
 
@@ -141,21 +118,24 @@ systemctl restart mariadb.service
 SHOW GLOBAL STATUS LIKE 'wsrep_cluster_size'; # 查询集群数量
 ```
 
-#### 配置高可用代理 
+## 配置高可用
+
+### 高可用环境准备
 
 ```bash
 sudo apt install keepalived haproxy -y
+systemctl stop keepalived haproxy
 ```
 
-##### 配置 HAProxy
+### 配置 HAProxy
 
-###### 创建测试用户
+#### 创建测试用户
 
 ```mysql
 CREATE USER 'haproxy'@'%';
 ```
 
-###### 装入配置文件
+#### 装入配置文件
 
 ```bash
 cat << EOF > /etc/haproxy/haproxy.cfg
@@ -215,12 +195,11 @@ listen 0.0.0.0:8080
     stats realm Strictly\ Private
     stats auth admin:haproxy
 EOF
-systemctl restart haproxy.service
 ```
 
-##### 配置Keepalived
+### 配置Keepalived
 
-###### 装入配置文件
+#### 装入配置文件
 
 **修改对应的网卡地址和虚拟ip！**
 
@@ -256,13 +235,12 @@ vrrp_instance VI_1 {
     }
 }
 EOF
-systemctl restart keepalived.service
 ```
 
-###### 装入测试脚本
+#### 装入测试脚本
 
 ```bash
-cat << "EOF" > /etc/keepalived/check.sh
+cat << "EOF" | sed -i "s@<VIP-ADDRESS>@$CLU_VIP@g" > /etc/keepalived/check.sh
 #!/bin/sh
 errorExit() {
     echo "*** $*" 1>&2
@@ -270,68 +248,21 @@ errorExit() {
 }
 
 APISERVER_DEST_PORT=8080
-APISERVER_VIP=10.0.0.20 # 修改为vip地址
+APISERVER_VIP=<VIP-ADDRESS> 
+# 修改为vip地址
 curl --silent --max-time 2 --insecure https://localhost:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://localhost:$APISERVER_DEST_PORT/"
 if ip addr | grep -q ${APISERVER_VIP}; then
     curl --silent --max-time 2 --insecure https://$APISERVER_VIP:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://$APISERVER_VIP:$APISERVER_DEST_PORT/"
 fi
 EOF
 chmod +x  /etc/keepalived/check.sh
-systemctl restart keepalived.service
 ```
 
-#### 创建 k3s 用户
-
-```mysql
-create user k3s identified by 'k3s-password';
-create database k3s;
-grant all privileges on k3s.* to k3s@'%' identified by 'k3s';
-flush  privileges;
-```
-
-## 部署 k3s
-
-### 部署 Server
+### 启动高可用
 
 ```bash
-curl -sfL https://get.k3s.io | sh -s - server   --datastore-endpoint="mysql://k3s:k3s-password@tcp(10.0.0.20:3307)/k3s" --token c83f0510-a5b3-11ec-b909-0242ac120002 --cluster-cidr "10.254.0.0/16" --service-cidr "10.253.0.0/16" --docker --flannel-backend wireguard --cluster-dns 10.253.0.254 --cluster-domain "cluster.local"  --cluster-init 
+systemctl start keepalived haproxy
 ```
 
-各个配置详情请查看 [rancher]( https://docs.rancher.cn/docs/k3s/installation/install-options/server-config/_index)
 
-#### 增加 HAProxy 高可用规则
 
-```bash
-cat << EOF >> /etc/haproxy/haproxy.cfg
-#---------------------------------------------------------------------
-# apiserver frontend which proxys to the control plane nodes
-#---------------------------------------------------------------------
-frontend apiserver
-    bind *:8443
-    mode tcp
-    option tcplog
-    default_backend apiserver
-
-#---------------------------------------------------------------------
-# round robin balancing for apiserver
-#---------------------------------------------------------------------
-backend apiserver
-    option httpchk GET /healthz
-    http-check expect status 200
-    mode tcp
-    option ssl-hello-chk
-    balance     roundrobin
-        server k8s-01  $CLU_1:6443 check
-        server k8s-02  $CLU_2:6443 check
-        server k8s-03  $CLU_3:6443 check
-EOF
-systemctl restart haproxy.service
-```
-
-注意：如果想在外部使用 `kubectl` 则需将配置文件 `~/.kube/config` 下 IP 和端口改为 **VIP 地址**和 **HAProxy 端口**
-
-### 部署 Agent
-
-```bash
-curl -sfL https://get.k3s.io | sh -s - agent --token c83f0510-a5b3-11ec-b909-0242ac120002 --server https://10.0.0.20:8443
-```
