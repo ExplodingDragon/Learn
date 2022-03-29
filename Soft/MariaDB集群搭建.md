@@ -15,7 +15,6 @@
 
 ```bash
 apt install mariadb-server  galera-4 rsync  mariadb-client -y
-mysql_secure_installation # 配置默认安全密钥
 ```
 
 ### 配置集群
@@ -27,7 +26,6 @@ mysql_secure_installation # 配置默认安全密钥
 #### 预先配置
 
 ```bash
-systemctl stop mariadb.service
 export CLU_1=10.0.0.21
 export CLU_2=10.0.0.22
 export CLU_3=10.0.0.23
@@ -108,6 +106,12 @@ binlog_format            = ROW
 innodb_autoinc_lock_mode = 2
 EOF
 systemctl restart mariadb.service
+```
+
+#### 初始化集群
+
+```bash
+mysql_secure_installation
 ```
 
 #### 集群验证
@@ -204,6 +208,7 @@ EOF
 **修改对应的网卡地址和虚拟ip！**
 
 ```bash
+#export CLU_VIP=172.18.40.215
 cat << "EOF" > /etc/keepalived/keepalived.conf
 ! /etc/keepalived/keepalived.conf
 ! Configuration File for keepalived
@@ -240,7 +245,8 @@ EOF
 #### 装入测试脚本
 
 ```bash
-cat << "EOF" | sed -i "s@<VIP-ADDRESS>@$CLU_VIP@g" > /etc/keepalived/check.sh
+#export CLU_VIP=172.18.40.215
+cat << "EOF" | sed "s@<VIP-ADDRESS>@$CLU_VIP@g" > /etc/keepalived/check.sh
 #!/bin/sh
 errorExit() {
     echo "*** $*" 1>&2
@@ -250,9 +256,9 @@ errorExit() {
 APISERVER_DEST_PORT=8080
 APISERVER_VIP=<VIP-ADDRESS> 
 # 修改为vip地址
-curl --silent --max-time 2 --insecure https://localhost:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://localhost:$APISERVER_DEST_PORT/"
+curl --silent --max-time 2 --insecure https://localhost:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET http://localhost:$APISERVER_DEST_PORT/"
 if ip addr | grep -q ${APISERVER_VIP}; then
-    curl --silent --max-time 2 --insecure https://$APISERVER_VIP:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET https://$APISERVER_VIP:$APISERVER_DEST_PORT/"
+    curl --silent --max-time 2 --insecure https://$APISERVER_VIP:$APISERVER_DEST_PORT/ -o /dev/null || errorExit "Error GET http://$APISERVER_VIP:$APISERVER_DEST_PORT/"
 fi
 EOF
 chmod +x  /etc/keepalived/check.sh
@@ -265,4 +271,14 @@ systemctl start keepalived haproxy
 ```
 
 
+
+## 常用命令
+
+```mysql
+create user k3s identified by 'k3s-password';
+create database k3s;
+grant all privileges on k3s.* to k3s@'%' identified by 'k3s';
+SET PASSWORD FOR 'k3s' = PASSWORD("k3s-password");
+flush  privileges;
+```
 

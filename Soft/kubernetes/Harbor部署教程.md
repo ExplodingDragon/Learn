@@ -6,11 +6,12 @@
 mkdir -p /data/certs
 cd /data/certs
 # 配置地址
-export CERT_HOST=harbor.pcloud.com
+export CA_NAME=PowerSI Internal CA 
+export CERT_HOST=harbor.powersi.com
 # 生成CA证书
 openssl genrsa -out ca.key 4096
 # 生成证书
-openssl req -x509 -new -nodes -sha512 -days 3650  -subj "/CN=$CERT_HOST"  -key ca.key  -out ca.crt
+openssl req -x509 -new -nodes -sha512 -days 3650  -subj "/CN=$CA_NAME"  -key ca.key  -out ca.crt
 # 生成服务器证书
 # 创建私钥
 openssl genrsa -out server.key 4096
@@ -56,6 +57,10 @@ cat << EOF > /etc/docker/certs.d/$CERT_HOST/server.crt
 EOF
 
 ```
+
+### 保存证书到系统
+
+复制 `ca.crt` 证书 `/etc/pki/ca-trust/source/anchors` ，然后执行`update-ca-trust`
 
 ```bash
 docker-compose up -d

@@ -121,7 +121,7 @@ cat > /etc/systemd/system/docker.service.d/http-proxy.conf << EOF
 [Service]
 Environment="HTTP_PROXY=http://172.16.63.188:8889"
 Environment="HTTPS_PROXY=http://172.16.63.188:8889"
-Environment="NO_PROXY=localhost,127.0.0.1,172.18.40.171,172.18.40.172,172.18.40.173,172.18.40.174,172.18.40.175,harbor.pcloud.com,.corp"
+Environment="NO_PROXY=localhost,127.0.0.1,172.18.40.171,172.18.40.172,172.18.40.173,172.18.40.174,172.18.40.175,harbor.powersi.com,.powersi.com"
 EOF
 systemctl daemon-reload
 systemctl restart docker
