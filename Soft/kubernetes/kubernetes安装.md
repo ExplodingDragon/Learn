@@ -114,7 +114,7 @@ Environment="HTTPS_PROXY=$http_proxy"
 Environment="NO_PROXY=localhost,127.0.0.1,harbor.powersi.com,.powersi.com"
 EOF
 systemctl daemon-reload
-systemctl restart docker
+systemctl restart containerd
 ```
 
 #### 配置自定义镜像站点 （可选）
@@ -300,8 +300,8 @@ backend apiserver
 # check status
 #---------------------------------------------------------------------
 
-listen 0.0.0.0:10080
-    bind 0.0.0.0:10080
+listen 0.0.0.0:8080
+    bind 0.0.0.0:8080
     mode http
     stats enable
     stats uri /
@@ -325,7 +325,7 @@ systemctl enable keepalived haproxy
 
 ```bash
 kubeadm init \
-	--control-plane-endpoint "$ha_m_vip:$ha_port" \ 
+	--control-plane-endpoint "$ha_m_vip:$ha_port" \
 	--upload-certs \
 	--pod-network-cidr=10.244.0.0/16
 ```
@@ -397,7 +397,7 @@ wget https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/k
 ##### 导入 `Flanner`
 
 ```bash
-kubectl -f apply kube-flannel.yml
+kubectl apply -f  kube-flannel.yml
 ```
 
 注意: 导入 CNI 插件时需要下载镜像，如无法连接外部网络请自行配置代理或导入镜像。

@@ -209,7 +209,7 @@ EOF
 
 ```bash
 #export CLU_VIP=172.18.40.215
-cat << "EOF" > /etc/keepalived/keepalived.conf
+cat << "EOF" | sed "s@<VIP>@$CLU_VIP@g"  > /etc/keepalived/keepalived.conf
 ! /etc/keepalived/keepalived.conf
 ! Configuration File for keepalived
 global_defs {
@@ -233,7 +233,7 @@ vrrp_instance VI_1 {
         auth_pass 42
     }
     virtual_ipaddress {
-        10.0.0.20
+        <VIP>
     }
     track_script {
         check_apiserver
@@ -275,10 +275,11 @@ systemctl start keepalived haproxy
 ## 常用命令
 
 ```mysql
-create user k3s identified by 'k3s-password';
-create database k3s;
-grant all privileges on k3s.* to k3s@'%' identified by 'k3s';
-SET PASSWORD FOR 'k3s' = PASSWORD("k3s-password");
+create user nacos identified by 'nacos';
+create database nacos;
+grant all privileges on nacos.* to nacos@'%' identified by 'nacos';
+grant all privileges on nacos.* to nacos@'localhost' identified by 'nacos';
+SET PASSWORD FOR 'nacos' = PASSWORD("nacos");
 flush  privileges;
 ```
 

@@ -13,8 +13,6 @@ sudo apt update
 sudo apt-get install docker-ce docker-ce-cli containerd.io -y
 ```
 
-
-
 ## 使用 UFW 配置 Docker 防火墙 
 
 ### UFW 开启转发
@@ -61,6 +59,28 @@ systemctl restart docker
 systemctl restart ufw
 reboot
 ```
+
+## 开启 Docker 镜像代理
+
+### Systemd
+
+编辑文件 `/etc/systemd/system/docker.service.d/http_proxy.conf`
+
+```ini
+[Service]
+Environment="HTTP_PROXY=http://127.0.0.1:8889"
+Environment="HTTPS_PROXY=http://127.0.0.1:8889"
+Environment="NO_PROXY=localhost,127.0.0.1"
+```
+
+重启 Docker
+
+```bash
+systemctl daemon-reload
+systemctl restart docker
+```
+
+
 
 ## 添加第三方镜像源
 
