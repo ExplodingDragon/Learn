@@ -1,7 +1,7 @@
 
 # 部署 MariaDB Galera集群
 
-> 测试环境为 `Debian Bullseye`
+> 测试环境为 `CentOS 7.5 Core`
 
 此处使用三台机器创建集群。其中，三台机器的配置为：
 
@@ -19,23 +19,19 @@ apt install mariadb-server  galera-4 rsync  mariadb-client -y
 
 ### 配置集群
 
-> 不建议对捆绑的配置文件进行更改。相反，建议在 `include` 目录创建自定义配置文件。 `include` 目录中的配置文件按字母顺序读取。如果您希望您的自定义配置文件覆盖捆绑的配置文件，那么最好在自定义配置文件的名称前加上一个排序的字符串，例如`z-`.
->
-> - 在 Debian 和 Ubuntu 上，一个可行的自定义配置文件应该是：`/etc/mysql/mariadb.conf.d/z-custom-my.cnf`
-
 #### 预先配置
 
 ```bash
-export CLU_1=10.0.0.21
-export CLU_2=10.0.0.22
-export CLU_3=10.0.0.23
-export CLU_VIP=10.0.0.20
+export CLU_1=172.18.40.229
+export CLU_2=172.18.40.230
+export CLU_3=172.18.40.231
+export CLU_VIP=172.18.40.250
 ```
 
 #### 第一台机器配置
 
 ```bash
-cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
+cat << EOF > /etc/my.cnf.d/server.cnf
 [mariadb]
 
 # Server Configuration
@@ -45,7 +41,7 @@ bind-address             = 0.0.0.0
 
 # Cluster Configuration
 wsrep_on                 = ON
-wsrep_provider           = /usr/lib/galera/libgalera_smm.so
+wsrep_provider           = /usr/lib64/galera-4/libgalera_smm.so
 wsrep_cluster_address    = gcomm://
 wsrep_cluster_name       = k3s-cluster
 wsrep_node_address       = $CLU_1
@@ -61,7 +57,7 @@ systemctl restart mariadb.service
 #### 第二台机器配置
 
 ```bash
-cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
+cat << EOF > /etc/my.cnf.d/server.cnf
 [mariadb]
 
 # Server Configuration
@@ -71,7 +67,7 @@ bind-address             = 0.0.0.0
 
 # Cluster Configuration
 wsrep_on                 = ON
-wsrep_provider           = /usr/lib/galera/libgalera_smm.so
+wsrep_provider           = /usr/lib64/galera-4/libgalera_smm.so
 wsrep_cluster_address    = gcomm://$CLU_1,$CLU_2,$CLU_3
 wsrep_cluster_name       = k3s-cluster
 wsrep_node_address       = $CLU_2
@@ -86,7 +82,7 @@ systemctl restart mariadb.service
 #### 第三台机器配置
 
 ```bash
-cat << EOF > /etc/mysql/mariadb.conf.d/z-cluster.cnf
+cat << EOF > /etc/my.cnf.d/server.cnf
 [mariadb]
 
 # Server Configuration
@@ -96,7 +92,7 @@ bind-address             = 0.0.0.0
 
 # Cluster Configuration
 wsrep_on                 = ON
-wsrep_provider           = /usr/lib/galera/libgalera_smm.so
+wsrep_provider           = /usr/lib64/galera-4/libgalera_smm.so
 wsrep_cluster_address    = gcomm://$CLU_1,$CLU_2,$CLU_3
 wsrep_cluster_name       = k3s-cluster
 wsrep_node_address       = $CLU_3
@@ -127,7 +123,7 @@ SHOW GLOBAL STATUS LIKE 'wsrep_cluster_size'; # 查询集群数量
 ### 高可用环境准备
 
 ```bash
-sudo apt install keepalived haproxy -y
+sudo yum install keepalived haproxy -y
 systemctl stop keepalived haproxy
 ```
 
@@ -278,8 +274,6 @@ systemctl start keepalived haproxy
 create user nacos identified by 'nacos';
 create database nacos;
 grant all privileges on nacos.* to nacos@'%' identified by 'nacos';
-grant all privileges on nacos.* to nacos@'localhost' identified by 'nacos';
 SET PASSWORD FOR 'nacos' = PASSWORD("nacos");
 flush  privileges;
 ```
-
